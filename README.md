@@ -1,87 +1,169 @@
 # minishell
 
+"yonazang & meyun's 금쪽이(Gold Baby Shell)"
 ![screenshot](/screenshot.png)
 
-- "yonazang & meyun's 금쪽이(Gold Baby Shell)"
-- GNU의 Bash를 '과제가 요구하는 만큼만' 최대한 비슷하게 구현합니다. (Bash와 완벽하게 같지 않습니다)
+A minimal Unix shell implemented in C for the 42 Seoul curriculum.
 
-## Official Documents
+
+## Project Overview
+
+`minishell` is a lightweight Unix shell that interprets and executes user commands in a POSIX-like environment.
+The project provides experience with parsing, process control, inter-process communication, and Unix system calls.
+
+---
+
+## Core Features
+
+* **Lexical Analysis and Parsing**
+
+  * Handles quoting (`'`, `"`), escaping (`\`), and environment variable expansion (`$VAR`, `$?`)
+  * Supports command separation with semicolons (`;`) and pipelines (`|`)
+* **Built-in Commands**
+
+  * Implements standard shell built-ins:
+
+    * `cd`, `echo`, `pwd`, `export`, `unset`, `env`, `exit`
+  * Built-ins are executed in the main shell process where required
+* **Process Management**
+
+  * Forks and executes external programs located in the system `$PATH`
+  * Handles proper parent/child process control for pipelines and redirections
+* **Redirection and Pipelines**
+
+  * Supports input/output redirection (`>`, `>>`, `<`)
+  * Handles chained pipelines (e.g., `ls | grep foo | wc -l`)
+* **Signal Handling**
+
+  * Custom handling for `SIGINT` (`Ctrl+C`), `SIGQUIT` (`Ctrl+\`), and end-of-file (`Ctrl+D`)
+* **Environment Variable Management**
+
+  * Supports environment variable assignment, export, and expansion
+  * Maintains a shell-local environment
+
+---
+
+## Getting Started
+
+### Build
+
+```sh
+make
+```
+
+### Run
+
+```sh
+./minishell
+```
+
+You will see a prompt. Enter commands as you would in Bash.
+
+### Example
+
+```sh
+echo Hello, World!
+export NAME=Yona
+echo $NAME
+cat < infile | grep pattern > outfile
+ls -l | wc -l
+```
+
+---
+
+## Project Structure
+
+```
+.
+├── src/        # Source files
+├── include/    # Header files
+├── Makefile
+└── README.md
+```
+
+---
+
+## Major Modules and Functions
+
+* **main.c**:
+  Shell entry point. Initializes the environment, signal handlers, and the main input loop.
+* **parser/**:
+  Implements lexical analysis and parsing.
+
+  * `lexer.c`: Tokenizes the input line (recognizes commands, arguments, operators).
+  * `parser.c`: Constructs command structures (AST or linked list) for execution.
+* **executor/**:
+  Handles command execution logic.
+
+  * `execute.c`: Manages built-in command dispatch and process creation.
+  * `pipeline.c`: Sets up and executes pipelines using `fork()` and `pipe()`.
+  * `redirect.c`: Handles input/output redirection (`dup2`, file open/close).
+* **env/**:
+  Environment variable storage and manipulation.
+
+  * `env.c`: Provides API for `getenv`, `setenv`, `unsetenv`, and environment expansion.
+* **builtin/**:
+  Built-in command implementations (e.g., `cd.c`, `echo.c`, etc.).
+* **utils/**:
+  Helper functions for string handling, memory management, and error reporting.
+
+---
+
+## Parsing Logic
+
+Parsing is performed in multiple stages:
+
+1. **Lexical Analysis (Tokenization)**
+
+   * The input line is split into tokens: words, operators (`|`, `;`, `>`, `>>`, `<`), and special symbols.
+   * Handles quotes (single/double), escaping, and splitting rules according to shell syntax.
+   * Recognizes and expands environment variables during this stage.
+
+2. **Syntax Parsing**
+
+   * Tokens are organized into a command structure (e.g., linked list or tree).
+   * Each node represents a command, its arguments, and its I/O redirections.
+   * Pipelines and command sequences are constructed by linking nodes.
+
+3. **Execution Preparation**
+
+   * Built-ins are identified and routed to internal handlers.
+   * External commands are resolved using `$PATH`.
+   * Redirections and pipelines are prepared before process creation.
+
+---
+
+## Error Handling and Limitations
+
+### Error Handling
+
+* **Syntax Errors**
+
+  * Detects and reports basic syntax errors, such as unmatched quotes or invalid redirection.
+* **Execution Errors**
+
+  * Reports errors for command not found, permission denied, failed redirection, etc.
+* **Signal Handling**
+
+  * Handles interrupts gracefully without terminating the shell (e.g., `Ctrl+C` cancels current input, not the shell).
+* **Memory Management**
+
+  * Attempts to free all dynamically allocated resources to prevent leaks.
+
+### Limitations
+
+* Does **not** support advanced Bash features such as:
+
+  * Job control (background processes, `&`)
+  * Command substitution (`` `cmd` ``, `$(cmd)`)
+  * Shell scripting (no function or loop syntax)
+  * Command history or line editing (no readline integration)
+* Error messages may be minimal compared to a full shell.
+* Does not implement all edge cases from the POSIX shell specification.
+
+## References
+
 - POSIX Shell & Utilities: Detailed ToC (IEEE)
 	-> https://pubs.opengroup.org/onlinepubs/9699919799/utilities/contents.html
 - Bash Reference Manual (GNU)
 	-> https://www.gnu.org/software/bash/manual/bash.html
-
-## Flow
-
-1. Input
-	- Readline
-2. Parsing
-	- Lexical analysis (=Tokenizing)
-	- Syntax analysis (=Make Parse Tree)
-3. Word Expansion
-	- Parameter and Variable Expansions
-	- Word Splitting
-	- Pathname Expansions
-	- Quote Removal
-4. Command Execution
-	- Redirection
-	- Builtin Commands
-	- Simple Command Execution
-
-## 1. Input
-
-### Readline
-- Standard library의 readline(3)을 사용하여 손쉽게 구현.
-- 개행 문자('\n')가 나올 때까지 입력 받고, 개행 문자를 제외한 문자열(Null-terminated string)을 반환한다.
-- 사용 방법
-	- brew install readline
-	- 컴파일 옵션: -lreadline
-
-## 2. Parsing
-
-### Lexical analysis (=Tokenizing)
-- Types of Token
-  - WORD
-  - OPERATOR
-    - BRACE_LEFT((), BRACE_RIGHT()), LOGICAL_AND(&&), LOGICAL_OR(||), 
-      PIPELINE(|), RDIR_IN(<), RDIR_OUT(>), RDIR_HEREDOC(<<), RDIR_APPEND(>>)
-- split 기준
-  - blank
-  	: space, tab, (newline의 경우, 우리의 구현에서는 해당x)
-  - operator (consist of non blank metacharacters)
-  	: "(", ")", "|", "||", "&&", "<", ">", "<<", ">>"
-- 참고 사항
-	- 토큰 타입들은 이후 Syntax 분석에서 BNF의 symbol로 쓰임.
-	- 우리의 쉘에서는 따옴표가 닫히지 않게 입력한 경우 따옴표가 닫힐 때까지 여러 줄(multi-line)을 입력 받지 않도록 할 것이므로, 이곳에서 unclosed quote를 syntax error로 간주하여 처리한다.
-
-### Syntax analysis (=Make Parse Tree)
-
-## 3. Word Expansion
-
-### Parameter and Variable Expansions
-- Positional Parameters: $N (N is digit)
-- Special Parameters
-	- ?: exit status of the most recent pipeline
-	- \*: wild card
-	- 이 밖에도 더 있지만 우리는 다루지 않음
-- Environment Variables: ${VARIABLE_NAME}
-
-### Word Splitting
-
-### Pathname Expansions
-
-### Quote Removal
-
-## 4. Command Execution
-
-### Redirection
-
-### Builtin Commands
-
-### Simple Command Execution
-- Error case
-	- No such file or directory(/포함 && 존재하지 x)
-	- Permission denied(/포함 && 존재 && 권한 x)
-	- No such file or directory(/포함 && 존재 && 파일x)
-	- command not found(/가 없음 && 존재하지 x)
-
