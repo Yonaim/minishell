@@ -160,6 +160,7 @@ Parsing is performed in multiple stages:
   * Command history or line editing (no readline integration)
 * Error messages may be minimal compared to a full shell.
 * Does not implement all edge cases from the POSIX shell specification.
+ 
 
 ## References
 
@@ -167,3 +168,9 @@ Parsing is performed in multiple stages:
 	-> https://pubs.opengroup.org/onlinepubs/9699919799/utilities/contents.html
 - Bash Reference Manual (GNU)
 	-> https://www.gnu.org/software/bash/manual/bash.html
+
+
+## Authors
+
+* [Yonaim](https://github.com/Yonaim)
+* [hyeuu](https://github.com/hey-uu)
